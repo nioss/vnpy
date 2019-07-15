@@ -108,16 +108,17 @@ class AlgoTemplate:
         """"""
         self.algo_engine.subscribe(self, vt_symbol)
 
+    # 买入做多
     def buy(
         self,
         vt_symbol,
         price,
         volume,
         order_type: OrderType = OrderType.LIMIT,
-        offset: Offset = Offset.NONE
+        offset: Offset = Offset.OPEN
     ):
         """"""
-        msg = f"委托买入{vt_symbol}：{volume}@{price}"
+        msg = f"委托买入做多{vt_symbol}：{volume}@{price}"
         self.write_log(msg)
 
         return self.algo_engine.send_order(
@@ -130,22 +131,69 @@ class AlgoTemplate:
             offset
         )
 
+    # 卖出平多
     def sell(
         self,
         vt_symbol,
         price,
         volume,
         order_type: OrderType = OrderType.LIMIT,
-        offset: Offset = Offset.NONE
+        offset: Offset = Offset.CLOSE
     ):
         """"""
-        msg = f"委托卖出{vt_symbol}：{volume}@{price}"
+        msg = f"委托卖出平多{vt_symbol}：{volume}@{price}"
         self.write_log(msg)
 
         return self.algo_engine.send_order(
             self,
             vt_symbol,
             Direction.SHORT,
+            price,
+            volume,
+            order_type,
+            offset
+        )
+
+    # 卖出做空
+    def short(
+            self,
+            vt_symbol,
+            price,
+            volume,
+            order_type: OrderType = OrderType.LIMIT,
+            offset: Offset = Offset.OPEN
+    ):
+        """"""
+        msg = f"委托卖出做空{vt_symbol}：{volume}@{price}"
+        self.write_log(msg)
+
+        return self.algo_engine.send_order(
+            self,
+            vt_symbol,
+            Direction.SHORT,
+            price,
+            volume,
+            order_type,
+            offset
+        )
+
+    # 买入平空
+    def cover(
+            self,
+            vt_symbol,
+            price,
+            volume,
+            order_type: OrderType = OrderType.LIMIT,
+            offset: Offset = Offset.CLOSE
+    ):
+        """"""
+        msg = f"委托买入平空{vt_symbol}：{volume}@{price}"
+        self.write_log(msg)
+
+        return self.algo_engine.send_order(
+            self,
+            vt_symbol,
+            Direction.LONG,
             price,
             volume,
             order_type,
@@ -167,6 +215,10 @@ class AlgoTemplate:
     def get_tick(self, vt_symbol: str):
         """"""
         return self.algo_engine.get_tick(self, vt_symbol)
+
+    def get_position(self, vt_symbol: str):
+        """"""
+        return self.algo_engine.get_position(self, vt_symbol)
 
     def get_contract(self, vt_symbol: str):
         """"""

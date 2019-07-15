@@ -203,6 +203,7 @@ class AlgoEngine(BaseEngine):
 
     def get_tick(self, algo: AlgoTemplate, vt_symbol: str):
         """"""
+
         tick = self.main_engine.get_tick(vt_symbol)
 
         if not tick:
@@ -218,6 +219,14 @@ class AlgoEngine(BaseEngine):
             self.write_log(f"查询合约失败，找不到合约：{vt_symbol}", algo)
 
         return contract
+
+    def get_position(self, algo: AlgoTemplate, vt_symbol: str):
+        position = self.main_engine.get_position(vt_symbol)
+
+        if not position:
+            self.write_log(f"查询持仓失败，找不到持仓：{vt_symbol}", algo)
+
+        return position
 
     def write_log(self, msg: str, algo: AlgoTemplate = None):
         """"""

@@ -1,7 +1,7 @@
-from vnpy.trader.constant import Direction
+from vnpy.trader.constant import Direction, Offset
 from vnpy.trader.object import TradeData, OrderData
 from vnpy.trader.engine import BaseEngine
-
+from vnpy.trader.constant import Direction
 from vnpy.app.algo_trading import AlgoTemplate
 
 
@@ -16,7 +16,9 @@ class ArbitrageAlgo(AlgoTemplate):
         "spread_up": 0.0,
         "spread_down": 0.0,
         "max_pos": 0,
+        "min_pos": 0,
         "interval": 0,
+        "hedge_num": 0
     }
 
     variables = [
@@ -28,10 +30,10 @@ class ArbitrageAlgo(AlgoTemplate):
     ]
 
     def __init__(
-        self,
-        algo_engine: BaseEngine,
-        algo_name: str,
-        setting: dict
+            self,
+            algo_engine: BaseEngine,
+            algo_name: str,
+            setting: dict
     ):
         """"""
         super().__init__(algo_engine, algo_name, setting)
@@ -42,7 +44,9 @@ class ArbitrageAlgo(AlgoTemplate):
         self.spread_up = setting["spread_up"]
         self.spread_down = setting["spread_down"]
         self.max_pos = setting["max_pos"]
+        self.min_pos = setting["min_pos"]
         self.interval = setting["interval"]
+        self.hedge_num = setting["hedge_num"]
 
         # Variables
         self.active_vt_orderid = ""
@@ -57,9 +61,24 @@ class ArbitrageAlgo(AlgoTemplate):
         self.put_parameters_event()
         self.put_variables_event()
 
+        self.init_holding()
+
+    def init_holding(self):
+        active_holding_long = self.get_position(f"{self.active_vt_symbol}.{Direction.LONG}")
+        active_holding_short = self.get_position(f"{self.active_vt_symbol}.{Direction.SHORT}")
+        passive_holding_long = self.get_position(f"{self.passive_vt_symbol}.{Direction.LONG}")
+        passive_holding_short = self.get_position(f"{self.passive_vt_symbol}.{Direction.SHORT}")
+        self.active_pos = (float(active_holding_long.volume) if active_holding_long else 0) - (
+            float(active_holding_short.volume) if active_holding_short else 0)
+        self.passive_pos = (float(passive_holding_long.volume) if passive_holding_long else 0) - (
+            float(passive_holding_short.volume) if passive_holding_short else 0)
+
     def on_stop(self):
         """"""
         self.write_log("停止算法")
+
+    def on_start(self):
+        self.init_holding()
 
     def on_order(self, order: OrderData):
         """"""
@@ -108,7 +127,7 @@ class ArbitrageAlgo(AlgoTemplate):
             return
 
         # Make sure that active leg is fully hedged by passive leg
-        if (self.active_pos + self.passive_pos) != 0:
+        if (self.active_pos + self.passive_pos) != (0 - self.hedge_num):
             self.write_log("主动腿和被动腿数量不一致，执行对冲")
             self.hedge()
             return
@@ -121,8 +140,8 @@ class ArbitrageAlgo(AlgoTemplate):
             return
 
         # Calculate spread
-        spread_bid_price = active_tick.bid_price_1 - passive_tick.ask_price_1
-        spread_ask_price = active_tick.ask_price_1 - passive_tick.bid_price_1
+        spread_bid_price = float(active_tick.bid_price_1) - float(passive_tick.ask_price_1)
+        spread_ask_price = float(active_tick.ask_price_1) - float(passive_tick.bid_price_1)
 
         spread_bid_volume = min(active_tick.bid_volume_1,
                                 passive_tick.ask_volume_1)
@@ -134,31 +153,32 @@ class ArbitrageAlgo(AlgoTemplate):
 
         # Sell condition
         if spread_bid_price > self.spread_up:
-            self.write_log("套利价差超过上限，满足做空条件")
+            self.write_log("套利价差超过上限，满足开空条件")
 
             if self.active_pos > -self.max_pos:
                 self.write_log("当前持仓小于最大持仓限制，执行卖出操作")
 
-                volume = min(spread_bid_volume,
-                             self.active_pos + self.max_pos)
+                volume = min(float(spread_bid_volume),
+                             float(self.active_pos + self.max_pos))
 
-                self.active_vt_orderid = self.sell(
+                self.active_vt_orderid = self.short(
                     self.active_vt_symbol,
                     active_tick.bid_price_1,
-                    volume
+                    volume,
+                    offset=Offset.OPEN
                 )
 
         # Buy condition
-        elif spread_ask_price < -self.spread_down:
-            self.write_log("套利价差超过下限，满足做多条件")
+        elif spread_ask_price < self.spread_down:
+            self.write_log("套利价差超过下限，满足平空条件")
 
-            if self.active_pos < self.max_pos:
+            if self.active_pos < self.min_pos - self.hedge_num:
                 self.write_log("当前持仓小于最大持仓限制，执行买入操作")
 
-                volume = min(spread_ask_volume,
-                             self.max_pos - self.active_pos)
+                volume = min(float(spread_ask_volume),
+                             float(-self.hedge_num - self.min_pos - self.active_pos))
 
-                self.active_vt_orderid = self.buy(
+                self.active_vt_orderid = self.cover(
                     self.active_vt_symbol,
                     active_tick.ask_price_1,
                     volume
@@ -170,7 +190,7 @@ class ArbitrageAlgo(AlgoTemplate):
     def hedge(self):
         """"""
         tick = self.get_tick(self.passive_vt_symbol)
-        volume = -self.active_pos - self.passive_pos
+        volume = -self.active_pos - self.passive_pos - self.hedge_num
 
         if volume > 0:
             self.passive_vt_orderid = self.buy(
