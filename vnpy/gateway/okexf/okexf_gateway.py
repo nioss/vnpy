@@ -689,6 +689,7 @@ class OkexfWebsocketApi(WebsocketClient):
         if success:
             self.gateway.write_log("Websocket API登录成功")
             self.subscribe_topic()
+            self.gateway.on_login(success)
         else:
             self.gateway.write_log("Websocket API登录失败")
 

@@ -3,7 +3,7 @@ from vnpy.trader.object import TradeData, OrderData
 from vnpy.trader.engine import BaseEngine
 from vnpy.trader.constant import Direction
 from vnpy.app.algo_trading import AlgoTemplate
-
+from vnpy.trader.event import EVENT_LOGIN
 
 class ArbitrageAlgo(AlgoTemplate):
     """"""
@@ -18,7 +18,10 @@ class ArbitrageAlgo(AlgoTemplate):
         "max_pos": 0,
         "min_pos": 0,
         "interval": 0,
-        "hedge_num": 0
+        "hedge_num": 0,
+        "level_pre": 0.01,
+        "level_gap": 0.002,
+        "level_num": 10
     }
 
     variables = [
@@ -47,6 +50,9 @@ class ArbitrageAlgo(AlgoTemplate):
         self.min_pos = setting["min_pos"]
         self.interval = setting["interval"]
         self.hedge_num = setting["hedge_num"]
+        self.level_pre = setting["level_pre"]
+        self.level_gap = setting["level_gap"]
+        self.level_num = setting["level_num"]
 
         # Variables
         self.active_vt_orderid = ""
@@ -62,6 +68,12 @@ class ArbitrageAlgo(AlgoTemplate):
         self.put_variables_event()
 
         self.init_holding()
+        self.algo_engine.main_engine.event_engine.register(EVENT_LOGIN, self.on_login)
+
+    def on_login(self, event):
+        self.write_log("重连行情，订阅symbol")
+        self.subscribe(self.active_vt_symbol)
+        self.subscribe(self.passive_vt_symbol)
 
     def init_holding(self):
         active_holding_long = self.get_position(f"{self.active_vt_symbol}.{Direction.LONG}")

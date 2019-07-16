@@ -22,5 +22,10 @@ NAME_DISPLAY_MAP = {
     "passive_vt_symbol": "被动腿",
     "spread_up": "价差上限",
     "spread_down": "价差下限",
-    "max_pos": "最大持仓"
+    "max_pos": "最大持仓",
+    "min_pos": "最小持仓",
+    "hedge_num": "对冲数量",
+    "level_pre": "起始价差比",
+    "level_gap": "每档价差比",
+    "level_num": "每档开仓量"
 }

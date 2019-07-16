@@ -15,6 +15,7 @@ from .event import (
     EVENT_ACCOUNT,
     EVENT_CONTRACT,
     EVENT_LOG,
+    EVENT_LOGIN
 )
 from .object import (
     TickData,
@@ -95,6 +96,13 @@ class BaseGateway(ABC):
         """
         self.on_event(EVENT_TICK, tick)
         self.on_event(EVENT_TICK + tick.vt_symbol, tick)
+
+    def on_login(self, data):
+        """
+        Tick event push.
+        Tick event of a specific vt_symbol is also pushed.
+        """
+        self.on_event(EVENT_LOGIN, data)
 
     def on_trade(self, trade: TradeData):
         """
