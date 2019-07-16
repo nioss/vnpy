@@ -370,33 +370,33 @@ class OkexfRestApi(RestClient):
         """"""
         if not data["holding"]:
             return
+        for d in data["holding"]:
+            for pos_data in d:
+                if float(pos_data["long_qty"]) > 0:
+                    pos = PositionData(
+                        symbol=pos_data["instrument_id"].upper(),
+                        exchange=Exchange.OKEX,
+                        direction=Direction.LONG,
+                        volume=pos_data["long_qty"],
+                        frozen=float(pos_data["long_qty"]) - float(pos_data["long_avail_qty"]),
+                        price=pos_data["long_avg_cost"],
+                        pnl=pos_data["realised_pnl"],
+                        gateway_name=self.gateway_name,
+                    )
+                    self.gateway.on_position(pos)
 
-        for pos_data in data["holding"][0]:
-            if float(pos_data["long_qty"]) > 0:
-                pos = PositionData(
-                    symbol=pos_data["instrument_id"].upper(),
-                    exchange=Exchange.OKEX,
-                    direction=Direction.LONG,
-                    volume=pos_data["long_qty"],
-                    frozen=float(pos_data["long_qty"]) - float(pos_data["long_avail_qty"]),
-                    price=pos_data["long_avg_cost"],
-                    pnl=pos_data["realised_pnl"],
-                    gateway_name=self.gateway_name,
-                )
-                self.gateway.on_position(pos)
-
-            if float(pos_data["short_qty"]) > 0:
-                pos = PositionData(
-                    symbol=pos_data["instrument_id"],
-                    exchange=Exchange.OKEX,
-                    direction=Direction.SHORT,
-                    volume=pos_data["short_qty"],
-                    frozen=float(pos_data["short_qty"]) - float(pos_data["short_avail_qty"]),
-                    price=pos_data["short_avg_cost"],
-                    pnl=pos_data["realised_pnl"],
-                    gateway_name=self.gateway_name,
-                )
-                self.gateway.on_position(pos)
+                if float(pos_data["short_qty"]) > 0:
+                    pos = PositionData(
+                        symbol=pos_data["instrument_id"],
+                        exchange=Exchange.OKEX,
+                        direction=Direction.SHORT,
+                        volume=pos_data["short_qty"],
+                        frozen=float(pos_data["short_qty"]) - float(pos_data["short_avail_qty"]),
+                        price=pos_data["short_avg_cost"],
+                        pnl=pos_data["realised_pnl"],
+                        gateway_name=self.gateway_name,
+                    )
+                    self.gateway.on_position(pos)
 
     def on_query_order(self, data, request):
         """"""

@@ -179,7 +179,7 @@ class ArbitrageAlgo(AlgoTemplate):
                 offset=Offset.OPEN
             )
         spread_ask_rate = spread_ask_price / self.last_price
-        ask_holding = int((spread_ask_rate - self.level_pre) / self.level_gap + 1) * self.level_num
+        ask_holding = max(int((spread_ask_rate - self.level_pre) / self.level_gap + 1) * self.level_num, 0)
         self.write_log(f"平空价差比：{spread_ask_rate},主动腿最大应该持有空仓{ask_holding}张")
         if ask_holding < abs(self.active_pos + self.hedge_num):
             volume = min(float(spread_bid_volume),
