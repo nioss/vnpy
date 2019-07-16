@@ -5,6 +5,7 @@ from vnpy.trader.constant import Direction
 from vnpy.app.algo_trading import AlgoTemplate
 from vnpy.trader.event import EVENT_LOGIN
 
+
 class ArbitrageAlgo(AlgoTemplate):
     """"""
 
@@ -13,15 +14,15 @@ class ArbitrageAlgo(AlgoTemplate):
     default_setting = {
         "active_vt_symbol": "",
         "passive_vt_symbol": "",
-        "spread_up": 0.0,
-        "spread_down": 0.0,
-        "max_pos": 0,
-        "min_pos": 0,
-        "interval": 0,
+        # "spread_up": 0.0,
+        # "spread_down": 0.0,
+        # "max_pos": 0,
+        # "min_pos": 0,
         "hedge_num": 0,
         "level_pre": 0.01,
         "level_gap": 0.002,
-        "level_num": 10
+        "level_num": 10,
+        "interval": 0
     }
 
     variables = [
@@ -44,10 +45,10 @@ class ArbitrageAlgo(AlgoTemplate):
         # Parameters
         self.active_vt_symbol = setting["active_vt_symbol"]
         self.passive_vt_symbol = setting["passive_vt_symbol"]
-        self.spread_up = setting["spread_up"]
-        self.spread_down = setting["spread_down"]
-        self.max_pos = setting["max_pos"]
-        self.min_pos = setting["min_pos"]
+        # self.spread_up = setting["spread_up"]
+        # self.spread_down = setting["spread_down"]
+        # self.max_pos = setting["max_pos"]
+        # self.min_pos = setting["min_pos"]
         self.interval = setting["interval"]
         self.hedge_num = setting["hedge_num"]
         self.level_pre = setting["level_pre"]
@@ -60,6 +61,7 @@ class ArbitrageAlgo(AlgoTemplate):
         self.active_pos = 0
         self.passive_pos = 0
         self.timer_count = 0
+        self.last_price = 0
 
         self.subscribe(self.active_vt_symbol)
         self.subscribe(self.passive_vt_symbol)
@@ -159,42 +161,70 @@ class ArbitrageAlgo(AlgoTemplate):
                                 passive_tick.ask_volume_1)
         spread_ask_volume = min(active_tick.ask_volume_1,
                                 passive_tick.bid_volume_1)
-
-        msg = f"价差盘口，买：{spread_bid_price} ({spread_bid_volume})，卖：{spread_ask_price} ({spread_ask_volume})"
+        self.last_price = float(active_tick.last_price)
+        msg = f"价差盘口，买：{spread_bid_price} ({spread_bid_volume})，卖：{spread_ask_price} ({spread_ask_volume}),last:{self.last_price}"
         self.write_log(msg)
+        spread_bid_rate = spread_bid_price / self.last_price  # 开仓价差比
+        bid_holding = int((spread_bid_rate - self.level_pre) / self.level_gap) * self.level_num
+        self.write_log(f"做空价差比：{spread_bid_rate},主动腿最小应该持有空仓{bid_holding}张")
 
-        # Sell condition
-        if spread_bid_price > self.spread_up:
-            self.write_log("套利价差超过上限，满足开空条件")
-
-            if self.active_pos > -self.max_pos:
-                self.write_log("当前持仓小于最大持仓限制，执行卖出操作")
-
-                volume = min(float(spread_bid_volume),
-                             float(self.active_pos + self.max_pos))
-
-                self.active_vt_orderid = self.short(
-                    self.active_vt_symbol,
-                    active_tick.bid_price_1,
-                    volume,
-                    offset=Offset.OPEN
-                )
-
-        # Buy condition
-        elif spread_ask_price < self.spread_down:
-            self.write_log("套利价差超过下限，满足平空条件")
-
-            if self.active_pos < self.min_pos - self.hedge_num:
-                self.write_log("当前持仓小于最大持仓限制，执行买入操作")
-
-                volume = min(float(spread_ask_volume),
-                             float(-self.hedge_num - self.min_pos - self.active_pos))
-
-                self.active_vt_orderid = self.cover(
-                    self.active_vt_symbol,
-                    active_tick.ask_price_1,
-                    volume
-                )
+        if bid_holding > abs(self.active_pos + self.hedge_num):
+            volume = min(float(spread_ask_volume),
+                         float(bid_holding - abs(self.active_pos + self.hedge_num)))
+            self.write_log(f"当前主动腿有空单{self.active_pos}张，对冲单{self.hedge_num}张，还应再开{volume}张空单")
+            self.active_vt_orderid = self.short(
+                self.active_vt_symbol,
+                active_tick.bid_price_1,
+                volume,
+                offset=Offset.OPEN
+            )
+        spread_ask_rate = spread_ask_price / self.last_price
+        ask_holding = int((spread_ask_rate - self.level_pre) / self.level_gap + 1) * self.level_num
+        self.write_log(f"平空价差比：{spread_ask_rate},主动腿最大应该持有空仓{ask_holding}张")
+        if ask_holding < abs(self.active_pos + self.hedge_num):
+            volume = min(float(spread_bid_volume),
+                         float(abs(self.active_pos + self.hedge_num)) - ask_holding)
+            self.write_log(f"当前主动腿有空单{self.active_pos}张，对冲单{self.hedge_num}张，还应再开{volume}张空单")
+            self.active_vt_orderid = self.cover(
+                self.active_vt_symbol,
+                active_tick.ask_price_1,
+                volume
+            )
+        # msg = f"价差盘口，买：{spread_bid_price} ({spread_bid_volume})，卖：{spread_ask_price} ({spread_ask_volume})"
+        # self.write_log(msg)
+        #
+        # # Sell condition
+        # if spread_bid_price > self.spread_up:
+        #     self.write_log("套利价差超过上限，满足开空条件")
+        #
+        #     if self.active_pos > -self.max_pos:
+        #         self.write_log("当前持仓小于最大持仓限制，执行卖出操作")
+        #
+        #         volume = min(float(spread_bid_volume),
+        #                      float(self.active_pos + self.max_pos))
+        #
+                # self.active_vt_orderid = self.short(
+                #     self.active_vt_symbol,
+                #     active_tick.bid_price_1,
+                #     volume,
+                #     offset=Offset.OPEN
+                # )
+        #
+        # # Buy condition
+        # elif spread_ask_price < self.spread_down:
+        #     self.write_log("套利价差超过下限，满足平空条件")
+        #
+        #     if self.active_pos < self.min_pos - self.hedge_num:
+        #         self.write_log("当前持仓小于最大持仓限制，执行买入操作")
+        #
+        #         volume = min(float(spread_ask_volume),
+        #                      float(-self.hedge_num - self.min_pos - self.active_pos))
+        #
+                # self.active_vt_orderid = self.cover(
+                #     self.active_vt_symbol,
+                #     active_tick.ask_price_1,
+                #     volume
+                # )
 
         # Update GUI
         self.put_variables_event()
