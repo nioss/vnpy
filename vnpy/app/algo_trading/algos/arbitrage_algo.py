@@ -162,7 +162,8 @@ class ArbitrageAlgo(AlgoTemplate):
         spread_ask_volume = min(active_tick.ask_volume_1,
                                 passive_tick.bid_volume_1)
         self.last_price = float(active_tick.last_price)
-        msg = f"价差盘口，买：{spread_bid_price} ({spread_bid_volume})，卖：{spread_ask_price} ({spread_ask_volume}),last:{self.last_price}"
+        msg = f"价差盘口，买：{spread_bid_price} ({spread_bid_volume})，卖：{spread_ask_price} ({spread_ask_volume}),\
+                last:{self.last_price}, 价差比：{spread_bid_price/self.last_price}"
         self.write_log(msg)
         spread_bid_rate = spread_bid_price / self.last_price  # 开仓价差比
         bid_holding = int((spread_bid_rate - self.level_pre) / self.level_gap) * self.level_num
