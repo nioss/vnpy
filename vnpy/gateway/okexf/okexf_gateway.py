@@ -348,7 +348,7 @@ class OkexfRestApi(RestClient):
         self.gateway.write_log("合约信息查询成功")
 
         # Start websocket api after instruments data collected
-        self.gateway.ws_api.start()
+        # self.gateway.ws_api.start()
 
         # and query pending orders
         self.query_order()
@@ -548,6 +548,7 @@ class OkexfWebsocketApi(WebsocketClient):
         self.connect_time = int(datetime.now().strftime("%y%m%d%H%M%S"))
 
         self.init(WEBSOCKET_HOST, proxy_host, proxy_port)
+        self.start()
 
     def unpack_data(self, data):
         """"""
