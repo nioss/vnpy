@@ -114,7 +114,7 @@ class AlgoTemplate:
         vt_symbol,
         price,
         volume,
-        order_type: OrderType = OrderType.LIMIT,
+        order_type: OrderType = OrderType.MARKET,
         offset: Offset = Offset.OPEN
     ):
         """"""
@@ -137,7 +137,7 @@ class AlgoTemplate:
         vt_symbol,
         price,
         volume,
-        order_type: OrderType = OrderType.LIMIT,
+        order_type: OrderType = OrderType.MARKET,
         offset: Offset = Offset.CLOSE
     ):
         """"""
@@ -160,7 +160,7 @@ class AlgoTemplate:
             vt_symbol,
             price,
             volume,
-            order_type: OrderType = OrderType.LIMIT,
+            order_type: OrderType = OrderType.MARKET,
             offset: Offset = Offset.OPEN
     ):
         """"""
@@ -183,7 +183,7 @@ class AlgoTemplate:
             vt_symbol,
             price,
             volume,
-            order_type: OrderType = OrderType.LIMIT,
+            order_type: OrderType = OrderType.MARKET,
             offset: Offset = Offset.CLOSE
     ):
         """"""

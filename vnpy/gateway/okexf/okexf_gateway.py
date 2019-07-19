@@ -108,6 +108,7 @@ class OkexfGateway(BaseGateway):
 
         self.rest_api.connect(key, secret, passphrase, leverage,
                               session_number, proxy_host, proxy_port)
+        time.sleep(3)
         self.ws_api.connect(key, secret, passphrase, proxy_host, proxy_port)
 
     def subscribe(self, req: SubscribeRequest):

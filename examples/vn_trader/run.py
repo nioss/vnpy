@@ -8,7 +8,7 @@ from vnpy.trader.ui import MainWindow, create_qapp
 # from vnpy.gateway.bitmex import BitmexGateway
 # from vnpy.gateway.futu import FutuGateway
 # from vnpy.gateway.ib import IbGateway
-from vnpy.gateway.ctp import CtpGateway
+# from vnpy.gateway.ctp import CtpGateway
 # from vnpy.gateway.ctptest import CtptestGateway
 # from vnpy.gateway.femas import FemasGateway
 # from vnpy.gateway.tiger import TigerGateway
