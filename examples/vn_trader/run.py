@@ -77,5 +77,37 @@ def main():
     qapp.exec()
 
 
+def main_no_ui():
+    import time
+    event_engine = EventEngine()
+    main_engine = MainEngine(event_engine)
+    main_engine.add_gateway(OkexfGateway)
+
+    okex = {
+        "API Key": "ad9c804d-e263-4b2a-9e90-3b960828a4b3",
+        "Secret Key": "CBF74F9CC4DA6B7AE07F6F1FA5248AAB",
+        "Passphrase": "ouyang",
+        "Leverage": 20,
+        "会话数": 3,
+        "代理地址": "",
+        "代理端口": ""
+    }
+    main_engine.connect(okex, 'OKEXF')
+    time.sleep(10)
+
+    algo = main_engine.add_app(AlgoTradingApp)
+    eos =  {
+        "template_name": "ArbitrageAlgo",
+        "active_vt_symbol": "EOS-USD-190927.OKEX",
+        "passive_vt_symbol": "EOS-USD-190726.OKEX",
+        "hedge_num": 3,
+        "level_pre": 0.005,
+        "level_gap": 0.003,
+        "level_num": 3,
+        "interval": 5
+    }
+    algo.start_algo(eos)
+
 if __name__ == "__main__":
-    main()
+    # main()
+    main_no_ui()

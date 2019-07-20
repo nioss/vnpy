@@ -17,6 +17,22 @@ EVENT_ALGO_SETTING = "eAlgoSetting"
 EVENT_ALGO_VARIABLES = "eAlgoVariables"
 EVENT_ALGO_PARAMETERS = "eAlgoParameters"
 
+from logging.handlers import TimedRotatingFileHandler
+import logging
+def init_log(name):
+    logFilePath = "%s.log" % name
+    logger = logging.getLogger(name)
+    logger.setLevel(logging.INFO)
+    handler = TimedRotatingFileHandler(logFilePath, when="d", interval=1, backupCount=30, encoding="UTF-8")
+    formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+    handler.setFormatter(formatter)
+    logger.addHandler(handler)
+    console = logging.StreamHandler()
+    console.setLevel(logging.INFO)
+    console.setFormatter(formatter)
+    logger.addHandler(console)
+    return logger
+
 
 class AlgoEngine(BaseEngine):
     """"""
@@ -35,6 +51,7 @@ class AlgoEngine(BaseEngine):
 
         self.load_algo_template()
         self.register_event()
+        self.logger = init_log('algo_logger')
 
     def init_engine(self):
         """"""
@@ -232,7 +249,7 @@ class AlgoEngine(BaseEngine):
         """"""
         if algo:
             msg = f"{algo.algo_name}：{msg}"
-
+        self.logger.info(msg)
         event = Event(EVENT_ALGO_LOG)
         event.data = msg
         self.event_engine.put(event)
