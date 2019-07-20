@@ -74,8 +74,8 @@ def main_terminal():
     main_engine.connect(OKEX_API, "OKEXF")
     sleep(10)
 
-    rep_address = "tcp://127.0.0.1:2014"
-    pub_address = "tcp://127.0.0.1:4102"
+    rep_address = "tcp://0.0.0.0:2014"
+    pub_address = "tcp://0.0.0.0:4102"
     rpc_engine.start(rep_address, pub_address)
 
     while True:
