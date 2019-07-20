@@ -68,8 +68,8 @@ def main_terminal():
         "Passphrase": "ouyang",
         "Leverage": 20,
         "\u4f1a\u8bdd\u6570": 3,
-        "\u4ee3\u7406\u5730\u5740": "127.0.0.1",
-        "\u4ee3\u7406\u7aef\u53e3": "1080"
+        "\u4ee3\u7406\u5730\u5740": "",
+        "\u4ee3\u7406\u7aef\u53e3": ""
     }
     main_engine.connect(OKEX_API, "OKEXF")
     sleep(10)
