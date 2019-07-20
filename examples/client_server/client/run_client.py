@@ -3,6 +3,7 @@ from vnpy.trader.engine import MainEngine
 from vnpy.trader.ui import MainWindow, create_qapp
 from vnpy.gateway.rpc import RpcGateway
 from vnpy.app.cta_strategy import CtaStrategyApp
+from vnpy.app.algo_trading import AlgoTradingApp
 
 
 def main():
@@ -14,7 +15,7 @@ def main():
     main_engine = MainEngine(event_engine)
 
     main_engine.add_gateway(RpcGateway)
-    main_engine.add_app(CtaStrategyApp)
+    main_engine.add_app(AlgoTradingApp)
 
     main_window = MainWindow(main_engine, event_engine)
     main_window.showMaximized()
