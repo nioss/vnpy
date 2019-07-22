@@ -172,10 +172,11 @@ class ArbitrageAlgo(AlgoTemplate):
         msg = f"价差盘口，last:{self.last_price}，\n\
             开：价差{round(spread_bid_price, 4)}，价差比{round(spread_bid_rate, 5)}，最小空单应为{bid_holding}张，\n\
             平：价差{round(spread_ask_price, 4)}，价差比{round(spread_ask_rate, 5)}，最大空单应为{ask_holding}张"
-        self.write_log(msg)
+        # self.write_log(msg)
         if bid_holding > abs(self.active_pos + self.hedge_num):
             volume = min(float(spread_bid_volume),
                          float(bid_holding - abs(self.active_pos + self.hedge_num)))
+            self.write_log(msg)
             self.write_log(f"当前主动腿有空单{self.active_pos}张，对冲单{self.hedge_num}张，还应再开{volume}张空单")
             self.active_vt_orderid = self.short(
                 self.active_vt_symbol,
@@ -187,6 +188,7 @@ class ArbitrageAlgo(AlgoTemplate):
         if ask_holding < abs(self.active_pos + self.hedge_num):
             volume = min(float(spread_ask_volume),
                          float(abs(self.active_pos + self.hedge_num)) - ask_holding)
+            self.write_log(msg)
             self.write_log(f"当前主动腿有空单{self.active_pos}张，对冲单{self.hedge_num}张，还应再开{volume}张空单")
             self.active_vt_orderid = self.cover(
                 self.active_vt_symbol,

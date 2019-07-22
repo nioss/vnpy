@@ -100,14 +100,14 @@ def main_no_ui():
         "template_name": "ArbitrageAlgo",
         "active_vt_symbol": "EOS-USD-190927.OKEX",
         "passive_vt_symbol": "EOS-USD-190726.OKEX",
-        "hedge_num": 3,
+        "hedge_num": 5,
         "level_pre": 0.005,
-        "level_gap": 0.003,
-        "level_num": 3,
-        "interval": 5
+        "level_gap": 0.002,
+        "level_num": 5,
+        "interval": 1
     }
     algo.start_algo(eos)
 
 if __name__ == "__main__":
-    main()
-    # main_no_ui()
+    # main()
+    main_no_ui()
