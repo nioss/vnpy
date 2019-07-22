@@ -162,15 +162,19 @@ class ArbitrageAlgo(AlgoTemplate):
         spread_ask_volume = min(active_tick.ask_volume_1,
                                 passive_tick.bid_volume_1)
         self.last_price = float(active_tick.last_price)
-        msg = f"价差盘口，买：{spread_bid_price} ({spread_bid_volume})，卖：{spread_ask_price} ({spread_ask_volume}),\
-                last:{self.last_price}, 价差比：{spread_bid_price/self.last_price}"
-        self.write_log(msg)
+
         spread_bid_rate = spread_bid_price / self.last_price  # 开仓价差比
         bid_holding = int((spread_bid_rate - self.level_pre) / self.level_gap) * self.level_num
-        self.write_log(f"做空价差比：{spread_bid_rate},主动腿最小应该持有空仓{bid_holding}张")
-
+        # self.write_log(f"做空价差比：{spread_bid_rate},主动腿最小应该持有空仓{bid_holding}张")
+        spread_ask_rate = spread_ask_price / self.last_price
+        ask_holding = max(int((spread_ask_rate - self.level_pre) / self.level_gap + 1) * self.level_num, 0)
+        # self.write_log(f"平空价差比：{spread_ask_rate},主动腿最大应该持有空仓{ask_holding}张")
+        msg = f"价差盘口，last:{self.last_price}，\n\
+            开：价差{round(spread_bid_price, 4)}，价差比{round(spread_bid_rate, 5)}，最小空单应为{bid_holding}张，\n\
+            平：价差{round(spread_ask_price, 4)}，价差比{round(spread_ask_rate, 5)}，最大空单应为{ask_holding}张"
+        self.write_log(msg)
         if bid_holding > abs(self.active_pos + self.hedge_num):
-            volume = min(float(spread_ask_volume),
+            volume = min(float(spread_bid_volume),
                          float(bid_holding - abs(self.active_pos + self.hedge_num)))
             self.write_log(f"当前主动腿有空单{self.active_pos}张，对冲单{self.hedge_num}张，还应再开{volume}张空单")
             self.active_vt_orderid = self.short(
@@ -179,11 +183,9 @@ class ArbitrageAlgo(AlgoTemplate):
                 volume,
                 offset=Offset.OPEN
             )
-        spread_ask_rate = spread_ask_price / self.last_price
-        ask_holding = max(int((spread_ask_rate - self.level_pre) / self.level_gap + 1) * self.level_num, 0)
-        self.write_log(f"平空价差比：{spread_ask_rate},主动腿最大应该持有空仓{ask_holding}张")
+
         if ask_holding < abs(self.active_pos + self.hedge_num):
-            volume = min(float(spread_bid_volume),
+            volume = min(float(spread_ask_volume),
                          float(abs(self.active_pos + self.hedge_num)) - ask_holding)
             self.write_log(f"当前主动腿有空单{self.active_pos}张，对冲单{self.hedge_num}张，还应再开{volume}张空单")
             self.active_vt_orderid = self.cover(

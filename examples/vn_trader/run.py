@@ -109,5 +109,5 @@ def main_no_ui():
     algo.start_algo(eos)
 
 if __name__ == "__main__":
-    # main()
-    main_no_ui()
+    main()
+    # main_no_ui()
