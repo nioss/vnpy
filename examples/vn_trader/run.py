@@ -104,6 +104,7 @@ def main_no_ui():
         "level_pre": 0.005,
         "level_gap": 0.002,
         "level_num": 5,
+        "slippage": 0.01,
         "interval": 1
     }
     algo.start_algo(eos)
