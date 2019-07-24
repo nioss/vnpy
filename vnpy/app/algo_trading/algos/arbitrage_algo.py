@@ -22,6 +22,7 @@ class ArbitrageAlgo(AlgoTemplate):
         "level_pre": 0.01,
         "level_gap": 0.002,
         "level_num": 10,
+        "slippage": 0.01,
         "interval": 0
     }
 
@@ -54,6 +55,7 @@ class ArbitrageAlgo(AlgoTemplate):
         self.level_pre = setting["level_pre"]
         self.level_gap = setting["level_gap"]
         self.level_num = setting["level_num"]
+        self.slippage = setting["slippage"]
 
         # Variables
         self.active_vt_orderid = ""
@@ -62,6 +64,8 @@ class ArbitrageAlgo(AlgoTemplate):
         self.passive_pos = 0
         self.timer_count = 0
         self.last_price = 0
+
+        self.tick_size = 0.001
 
         self.subscribe(self.active_vt_symbol)
         self.subscribe(self.passive_vt_symbol)
@@ -78,6 +82,7 @@ class ArbitrageAlgo(AlgoTemplate):
         self.subscribe(self.passive_vt_symbol)
 
     def init_holding(self):
+        # 查询初始持仓
         active_holding_long = self.get_position(f"{self.active_vt_symbol}.{Direction.LONG}")
         active_holding_short = self.get_position(f"{self.active_vt_symbol}.{Direction.SHORT}")
         passive_holding_long = self.get_position(f"{self.passive_vt_symbol}.{Direction.LONG}")
@@ -86,6 +91,10 @@ class ArbitrageAlgo(AlgoTemplate):
             float(active_holding_short.volume) if active_holding_short else 0)
         self.passive_pos = (float(passive_holding_long.volume) if passive_holding_long else 0) - (
             float(passive_holding_short.volume) if passive_holding_short else 0)
+        # 查询合约信息
+        active_contract= self.get_contract(self.active_vt_symbol)
+        if active_contract:
+            self.tick_size = active_contract.pricetick
 
     def on_stop(self):
         """"""
@@ -119,9 +128,9 @@ class ArbitrageAlgo(AlgoTemplate):
                 self.passive_pos -= trade.volume
 
         # Hedge if active symbol traded
-        if trade.vt_symbol == self.active_vt_symbol:
-            self.write_log("收到主动腿成交回报，执行对冲")
-            self.hedge()
+        # if trade.vt_symbol == self.active_vt_symbol:
+        #     self.write_log("收到主动腿成交回报，执行对冲")
+        #     self.hedge()
 
         self.put_variables_event()
 
@@ -136,8 +145,8 @@ class ArbitrageAlgo(AlgoTemplate):
 
         # Cancel all active orders before moving on
         if self.active_vt_orderid or self.passive_vt_orderid:
-            self.write_log("有未成交委托，执行撤单")
-            self.cancel_all()
+            self.write_log("有未成交委托，等待成交")
+            # self.cancel_all()
             return
 
         # Make sure that active leg is fully hedged by passive leg
@@ -178,58 +187,37 @@ class ArbitrageAlgo(AlgoTemplate):
                          float(bid_holding - abs(self.active_pos + self.hedge_num)))
             self.write_log(msg)
             self.write_log(f"当前主动腿有空单{self.active_pos}张，对冲单{self.hedge_num}张，还应再开{volume}张空单")
+            # 主动腿开空
             self.active_vt_orderid = self.short(
                 self.active_vt_symbol,
-                active_tick.bid_price_1,
+                round(float(active_tick.bid_price_1) * (1-self.slippage), len(str(self.tick_size).split('.')[-1])),
                 volume,
                 offset=Offset.OPEN
+            )
+            # 被动腿开多
+            self.passive_vt_orderid = self.buy(
+                self.passive_vt_symbol,
+                round(float(passive_tick.ask_price_1) * (1+self.slippage), len(str(self.tick_size).split('.')[-1])),
+                volume
             )
 
         if ask_holding < abs(self.active_pos + self.hedge_num):
             volume = min(float(spread_ask_volume),
                          float(abs(self.active_pos + self.hedge_num)) - ask_holding)
             self.write_log(msg)
-            self.write_log(f"当前主动腿有空单{self.active_pos}张，对冲单{self.hedge_num}张，还应再开{volume}张空单")
+            self.write_log(f"当前主动腿有空单{self.active_pos}张，对冲单{self.hedge_num}张，还应再平{volume}张空单")
+            # 主动腿平空
             self.active_vt_orderid = self.cover(
                 self.active_vt_symbol,
-                active_tick.ask_price_1,
+                round(float(active_tick.ask_price_1) * (1+self.slippage), len(str(self.tick_size).split('.')[-1])),
                 volume
             )
-        # msg = f"价差盘口，买：{spread_bid_price} ({spread_bid_volume})，卖：{spread_ask_price} ({spread_ask_volume})"
-        # self.write_log(msg)
-        #
-        # # Sell condition
-        # if spread_bid_price > self.spread_up:
-        #     self.write_log("套利价差超过上限，满足开空条件")
-        #
-        #     if self.active_pos > -self.max_pos:
-        #         self.write_log("当前持仓小于最大持仓限制，执行卖出操作")
-        #
-        #         volume = min(float(spread_bid_volume),
-        #                      float(self.active_pos + self.max_pos))
-        #
-                # self.active_vt_orderid = self.short(
-                #     self.active_vt_symbol,
-                #     active_tick.bid_price_1,
-                #     volume,
-                #     offset=Offset.OPEN
-                # )
-        #
-        # # Buy condition
-        # elif spread_ask_price < self.spread_down:
-        #     self.write_log("套利价差超过下限，满足平空条件")
-        #
-        #     if self.active_pos < self.min_pos - self.hedge_num:
-        #         self.write_log("当前持仓小于最大持仓限制，执行买入操作")
-        #
-        #         volume = min(float(spread_ask_volume),
-        #                      float(-self.hedge_num - self.min_pos - self.active_pos))
-        #
-                # self.active_vt_orderid = self.cover(
-                #     self.active_vt_symbol,
-                #     active_tick.ask_price_1,
-                #     volume
-                # )
+            # 被动腿平多
+            self.passive_vt_orderid = self.sell(
+                self.passive_vt_symbol,
+                round(float(passive_tick.bid_price_1) * (1-self.slippage), len(str(self.tick_size).split('.')[-1])),
+                volume
+            )
 
         # Update GUI
         self.put_variables_event()

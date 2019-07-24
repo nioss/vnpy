@@ -27,5 +27,6 @@ NAME_DISPLAY_MAP = {
     "hedge_num": "对冲数量",
     "level_pre": "起始价差比",
     "level_gap": "每档价差比",
-    "level_num": "每档开仓量"
+    "level_num": "每档开仓量",
+    "slippage": "滑点"
 }
