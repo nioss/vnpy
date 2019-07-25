@@ -1,5 +1,5 @@
 from vnpy.trader.constant import Direction, Offset
-from vnpy.trader.object import TradeData, OrderData
+from vnpy.trader.object import TradeData, OrderData, TickData
 from vnpy.trader.engine import BaseEngine
 from vnpy.trader.constant import Direction
 from vnpy.app.algo_trading import AlgoTemplate
@@ -64,6 +64,8 @@ class ArbitrageAlgo(AlgoTemplate):
         self.passive_pos = 0
         self.timer_count = 0
         self.last_price = 0
+        self.active_tick = None
+        self.passive_tick = None
 
         self.tick_size = 0.001
 
@@ -134,9 +136,95 @@ class ArbitrageAlgo(AlgoTemplate):
 
         self.put_variables_event()
 
-    def on_timer(self):
+    def on_tick(self, tick: TickData):
+        if tick.vt_symbol == self.active_vt_symbol:
+            self.active_tick = tick
+        elif tick.vt_symbol == self.passive_vt_symbol:
+            self.passive_tick = tick
+        if self.active_tick is None or self.passive_tick is None:
+            self.write_log("获取某条套利腿的行情失败，无法交易")
+            return
+
+        # Cancel all active orders before moving on
+        if self.active_vt_orderid or self.passive_vt_orderid:
+            self.write_log("有未成交委托，等待成交")
+            # self.cancel_all()
+            return
+
+        # Make sure that active leg is fully hedged by passive leg
+        if (self.active_pos + self.passive_pos) != (0 - self.hedge_num):
+            self.write_log("主动腿和被动腿数量不一致，执行对冲")
+            self.hedge()
+            return
+
+        # Calculate spread
+        spread_bid_price = float(self.active_tick.bid_price_1) - float(self.passive_tick.ask_price_1)
+        spread_ask_price = float(self.active_tick.ask_price_1) - float(self.passive_tick.bid_price_1)
+
+        spread_bid_volume = min(int(self.active_tick.bid_volume_1),
+                                int(self.passive_tick.ask_volume_1))
+        spread_ask_volume = min(int(self.active_tick.ask_volume_1),
+                                int(self.passive_tick.bid_volume_1))
+        self.last_price = float(self.active_tick.last_price)
+
+        spread_bid_rate = spread_bid_price / self.last_price  # 开仓价差比
+        bid_holding = int((spread_bid_rate - self.level_pre) / self.level_gap) * self.level_num
+        # self.write_log(f"做空价差比：{spread_bid_rate},主动腿最小应该持有空仓{bid_holding}张")
+        spread_ask_rate = spread_ask_price / self.last_price
+        ask_holding = max(int((spread_ask_rate - self.level_pre) / self.level_gap + 1) * self.level_num, 0)
+        # self.write_log(f"平空价差比：{spread_ask_rate},主动腿最大应该持有空仓{ask_holding}张")
+        msg = f"价差盘口，last:{self.last_price}，\n\
+            开：价差{round(spread_bid_price, 4)}，价差比{round(spread_bid_rate, 5)}，最小空单应为{bid_holding}张，\n\
+            平：价差{round(spread_ask_price, 4)}，价差比{round(spread_ask_rate, 5)}，最大空单应为{ask_holding}张"
+        # self.write_log(msg)
+        if bid_holding > abs(self.active_pos + self.hedge_num):
+            volume = min(float(spread_bid_volume),
+                         float(bid_holding - abs(self.active_pos + self.hedge_num)))
+            self.write_log(msg)
+            self.write_log(f"当前主动腿有空单{self.active_pos}张，对冲单{self.hedge_num}张，还应再开{volume}张空单")
+            # 主动腿开空
+            self.active_vt_orderid = self.short(
+                self.active_vt_symbol,
+                round(float(self.active_tick.bid_price_1) * (1 - self.slippage),
+                      len(str(self.tick_size).split('.')[-1])),
+                volume,
+                offset=Offset.OPEN
+            )
+            # 被动腿开多
+            self.passive_vt_orderid = self.buy(
+                self.passive_vt_symbol,
+                round(float(self.passive_tick.ask_price_1) * (1 + self.slippage),
+                      len(str(self.tick_size).split('.')[-1])),
+                volume
+            )
+
+        if ask_holding < abs(self.active_pos + self.hedge_num):
+            volume = min(float(spread_ask_volume),
+                         float(abs(self.active_pos + self.hedge_num)) - ask_holding)
+            self.write_log(msg)
+            self.write_log(f"当前主动腿有空单{self.active_pos}张，对冲单{self.hedge_num}张，还应再平{volume}张空单")
+            # 主动腿平空
+            self.active_vt_orderid = self.cover(
+                self.active_vt_symbol,
+                round(float(self.active_tick.ask_price_1) * (1 + self.slippage),
+                      len(str(self.tick_size).split('.')[-1])),
+                volume
+            )
+            # 被动腿平多
+            self.passive_vt_orderid = self.sell(
+                self.passive_vt_symbol,
+                round(float(self.passive_tick.bid_price_1) * (1 - self.slippage),
+                      len(str(self.tick_size).split('.')[-1])),
+                volume
+            )
+
+        # Update GUI
+        # self.put_variables_event()
+
+    def on_timer_(self):
         """"""
         # Run algo by fixed interval
+        print('on_timer_')
         self.timer_count += 1
         if self.timer_count < self.interval:
             self.put_variables_event()

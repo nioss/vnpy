@@ -302,4 +302,5 @@ class AlgoEngine(BaseEngine):
             "algo_name": algo.algo_name,
             "variables": variables
         }
+        self.logger.info(variables)
         self.event_engine.put(event)

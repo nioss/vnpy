@@ -62,8 +62,8 @@ def main():
     # main_engine.add_gateway(ToraGateway)
     # main_engine.add_gateway(AlpacaGateway)
 
-    main_engine.add_app(CtaStrategyApp)
-    main_engine.add_app(CtaBacktesterApp)
+    # main_engine.add_app(CtaStrategyApp)
+    # main_engine.add_app(CtaBacktesterApp)
     # main_engine.add_app(CsvLoaderApp)
     main_engine.add_app(AlgoTradingApp)
     # main_engine.add_app(DataRecorderApp)
