@@ -134,7 +134,7 @@ class ArbitrageAlgo(AlgoTemplate):
         #     self.write_log("收到主动腿成交回报，执行对冲")
         #     self.hedge()
 
-        self.put_variables_event()
+        # self.put_variables_event()
 
     def on_tick(self, tick: TickData):
         if tick.vt_symbol == self.active_vt_symbol:
@@ -173,7 +173,8 @@ class ArbitrageAlgo(AlgoTemplate):
         spread_ask_rate = spread_ask_price / self.last_price
         ask_holding = max(int((spread_ask_rate - self.level_pre) / self.level_gap + 1) * self.level_num, 0)
         # self.write_log(f"平空价差比：{spread_ask_rate},主动腿最大应该持有空仓{ask_holding}张")
-        msg = f"价差盘口，last:{self.last_price}，\n\
+        msg = f"价差盘口，时间：{tick.datetime}， 主动腿last:{self.last_price}，被动腿last:{self.passive_tick.last_price}，\n\
+            主动腿bid1:{self.active_tick.bid_price_1}，被动腿ask1:{self.passive_tick.ask_price_1}；主动腿ask1：{self.active_tick.ask_price_1}，被动腿bid1：{self.passive_tick.bid_price_1}，\n\
             开：价差{round(spread_bid_price, 4)}，价差比{round(spread_bid_rate, 5)}，最小空单应为{bid_holding}张，\n\
             平：价差{round(spread_ask_price, 4)}，价差比{round(spread_ask_rate, 5)}，最大空单应为{ask_holding}张"
         # self.write_log(msg)
