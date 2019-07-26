@@ -125,13 +125,14 @@ class ArbitrageAlgo(AlgoTemplate):
             self.active_tick = tick
         elif tick.vt_symbol == self.passive_vt_symbol:
             self.passive_tick = tick
-        if self.active_tick is None or self.passive_tick is None:
+        if self.active_tick is None or self.passive_tick is None or \
+                not self.active_tick.last_price or not self.passive_tick.last_price:
             self.write_log("获取某条套利腿的行情失败，无法交易")
             return
 
         # Cancel all active orders before moving on
         if self.active_vt_orderid or self.passive_vt_orderid:
-            self.write_log("有未成交委托，等待成交")
+            # self.write_log("有未成交委托，等待成交")
             # self.cancel_all()
             return
 
@@ -295,14 +296,14 @@ class ArbitrageAlgo(AlgoTemplate):
             # 主动腿开空
             self.active_vt_orderid = self.short(
                 self.active_vt_symbol,
-                round(float(active_tick.bid_price_1) * (1-self.slippage), len(str(self.tick_size).split('.')[-1])),
+                round(float(active_tick.bid_price_1) * (1 - self.slippage), len(str(self.tick_size).split('.')[-1])),
                 volume,
                 offset=Offset.OPEN
             )
             # 被动腿开多
             self.passive_vt_orderid = self.buy(
                 self.passive_vt_symbol,
-                round(float(passive_tick.ask_price_1) * (1+self.slippage), len(str(self.tick_size).split('.')[-1])),
+                round(float(passive_tick.ask_price_1) * (1 + self.slippage), len(str(self.tick_size).split('.')[-1])),
                 volume
             )
 
@@ -314,13 +315,13 @@ class ArbitrageAlgo(AlgoTemplate):
             # 主动腿平空
             self.active_vt_orderid = self.cover(
                 self.active_vt_symbol,
-                round(float(active_tick.ask_price_1) * (1+self.slippage), len(str(self.tick_size).split('.')[-1])),
+                round(float(active_tick.ask_price_1) * (1 + self.slippage), len(str(self.tick_size).split('.')[-1])),
                 volume
             )
             # 被动腿平多
             self.passive_vt_orderid = self.sell(
                 self.passive_vt_symbol,
-                round(float(passive_tick.bid_price_1) * (1-self.slippage), len(str(self.tick_size).split('.')[-1])),
+                round(float(passive_tick.bid_price_1) * (1 - self.slippage), len(str(self.tick_size).split('.')[-1])),
                 volume
             )
 
@@ -329,7 +330,7 @@ class ArbitrageAlgo(AlgoTemplate):
 
     def hedge(self):
         """"""
-        tick = self.get_tick(self.passive_vt_symbol)
+        tick = self.passive_tick
         volume = -self.active_pos - self.passive_pos - self.hedge_num
 
         if volume > 0:

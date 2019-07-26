@@ -413,7 +413,7 @@ class HbdmRestApi(RestClient):
             "direction": DIRECTION_VT2HBDM.get(req.direction, ""),
             "offset": OFFSET_VT2HBDM.get(req.offset, ""),
             "order_price_type": ORDERTYPE_VT2HBDM.get(req.type, ""),
-            "lever_rate": 20
+            "lever_rate": 10
         }
 
         self.add_request(
@@ -453,7 +453,7 @@ class HbdmRestApi(RestClient):
                 "direction": DIRECTION_VT2HBDM.get(req.direction, ""),
                 "offset": OFFSET_VT2HBDM.get(req.offset, ""),
                 "order_price_type": ORDERTYPE_VT2HBDM.get(req.type, ""),
-                "lever_rate": 20
+                "lever_rate": 10
             }
 
             orders_data.append(d)
