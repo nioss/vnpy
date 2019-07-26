@@ -63,6 +63,7 @@ class OrderType(Enum):
     STOP = "STOP"
     FAK = "FAK"
     FOK = "FOK"
+    OPTIMAL = "最优20档"  # 火币闪电平仓
 
 
 class OptionType(Enum):

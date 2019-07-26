@@ -207,6 +207,36 @@ class AlgoEngine(BaseEngine):
         self.orderid_algo_map[vt_orderid] = algo
         return vt_orderid
 
+    def send_orders(
+        self, algo: AlgoTemplate, order_list
+    ):
+        """"""
+        orders = []
+        for order in order_list:
+            contract = self.main_engine.get_contract(order.get('vt_symbol'))
+            if not contract:
+                self.write_log(f"委托下单失败，找不到合约：{order.get('vt_symbol')}", algo)
+                return
+
+            volume = round_to(order.get('volume'), contract.min_volume)
+            if not volume:
+                return ""
+
+            req = OrderRequest(
+                symbol=contract.symbol,
+                exchange=contract.exchange,
+                direction=order.get('direction'),
+                type=order.get('order_type'),
+                volume=order.get('volume'),
+                price=order.get('price'),
+                offset=order.get('offset')
+            )
+            orders.append(req)
+        vt_orderids = self.main_engine.send_orders(orders, contract.gateway_name)
+        for vt_orderid in vt_orderids:
+            self.orderid_algo_map[vt_orderid] = algo
+        return vt_orderids
+
     def cancel_order(self, algo: AlgoTemplate, vt_orderid: str):
         """"""
         order = self.main_engine.get_order(vt_orderid)
@@ -302,5 +332,5 @@ class AlgoEngine(BaseEngine):
             "algo_name": algo.algo_name,
             "variables": variables
         }
-        self.logger.info(variables)
+
         self.event_engine.put(event)

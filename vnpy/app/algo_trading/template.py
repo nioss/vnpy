@@ -114,7 +114,7 @@ class AlgoTemplate:
         vt_symbol,
         price,
         volume,
-        order_type: OrderType = OrderType.LIMIT,
+        order_type: OrderType = OrderType.MARKET,
         offset: Offset = Offset.OPEN
     ):
         """"""
@@ -137,7 +137,7 @@ class AlgoTemplate:
         vt_symbol,
         price,
         volume,
-        order_type: OrderType = OrderType.LIMIT,
+        order_type: OrderType = OrderType.MARKET,
         offset: Offset = Offset.CLOSE
     ):
         """"""
@@ -160,7 +160,7 @@ class AlgoTemplate:
             vt_symbol,
             price,
             volume,
-            order_type: OrderType = OrderType.LIMIT,
+            order_type: OrderType = OrderType.MARKET,
             offset: Offset = Offset.OPEN
     ):
         """"""
@@ -183,7 +183,7 @@ class AlgoTemplate:
             vt_symbol,
             price,
             volume,
-            order_type: OrderType = OrderType.LIMIT,
+            order_type: OrderType = OrderType.MARKET,
             offset: Offset = Offset.CLOSE
     ):
         """"""
@@ -199,6 +199,16 @@ class AlgoTemplate:
             order_type,
             offset
         )
+
+    # 同时开仓
+    def send_orders(self, order_list):
+        """"""
+        msg = ''
+        for order in order_list:
+            msg += f"委托下单{order.get('vt_symbol')}：{order.get('volume')}@{order.get('price')}\n"
+        self.write_log(msg)
+
+        return self.algo_engine.send_orders(self, order_list)
 
     def cancel_order(self, vt_orderid: str):
         """"""

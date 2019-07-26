@@ -1,9 +1,8 @@
-from vnpy.trader.constant import Direction, Offset
 from vnpy.trader.object import TradeData, OrderData, TickData
 from vnpy.trader.engine import BaseEngine
-from vnpy.trader.constant import Direction
 from vnpy.app.algo_trading import AlgoTemplate
 from vnpy.trader.event import EVENT_LOGIN
+from vnpy.trader.constant import (Direction, Offset, OrderType)
 
 
 class ArbitrageAlgo(AlgoTemplate):
@@ -46,10 +45,6 @@ class ArbitrageAlgo(AlgoTemplate):
         # Parameters
         self.active_vt_symbol = setting["active_vt_symbol"]
         self.passive_vt_symbol = setting["passive_vt_symbol"]
-        # self.spread_up = setting["spread_up"]
-        # self.spread_down = setting["spread_down"]
-        # self.max_pos = setting["max_pos"]
-        # self.min_pos = setting["min_pos"]
         self.interval = setting["interval"]
         self.hedge_num = setting["hedge_num"]
         self.level_pre = setting["level_pre"]
@@ -66,8 +61,6 @@ class ArbitrageAlgo(AlgoTemplate):
         self.last_price = 0
         self.active_tick = None
         self.passive_tick = None
-
-        self.tick_size = 0.001
 
         self.subscribe(self.active_vt_symbol)
         self.subscribe(self.passive_vt_symbol)
@@ -93,10 +86,6 @@ class ArbitrageAlgo(AlgoTemplate):
             float(active_holding_short.volume) if active_holding_short else 0)
         self.passive_pos = (float(passive_holding_long.volume) if passive_holding_long else 0) - (
             float(passive_holding_short.volume) if passive_holding_short else 0)
-        # 查询合约信息
-        active_contract= self.get_contract(self.active_vt_symbol)
-        if active_contract:
-            self.tick_size = active_contract.pricetick
 
     def on_stop(self):
         """"""
@@ -129,12 +118,7 @@ class ArbitrageAlgo(AlgoTemplate):
             else:
                 self.passive_pos -= trade.volume
 
-        # Hedge if active symbol traded
-        # if trade.vt_symbol == self.active_vt_symbol:
-        #     self.write_log("收到主动腿成交回报，执行对冲")
-        #     self.hedge()
-
-        # self.put_variables_event()
+        self.put_variables_event()
 
     def on_tick(self, tick: TickData):
         if tick.vt_symbol == self.active_vt_symbol:
@@ -166,61 +150,93 @@ class ArbitrageAlgo(AlgoTemplate):
         spread_ask_volume = min(int(self.active_tick.ask_volume_1),
                                 int(self.passive_tick.bid_volume_1))
         self.last_price = float(self.active_tick.last_price)
-
-        spread_bid_rate = spread_bid_price / self.last_price  # 开仓价差比
+        spread_bid_rate = spread_bid_price / self.last_price
         bid_holding = int((spread_bid_rate - self.level_pre) / self.level_gap) * self.level_num
-        # self.write_log(f"做空价差比：{spread_bid_rate},主动腿最小应该持有空仓{bid_holding}张")
         spread_ask_rate = spread_ask_price / self.last_price
         ask_holding = max(int((spread_ask_rate - self.level_pre) / self.level_gap + 1) * self.level_num, 0)
-        # self.write_log(f"平空价差比：{spread_ask_rate},主动腿最大应该持有空仓{ask_holding}张")
+
         msg = f"价差盘口，时间：{tick.datetime}， 主动腿last:{self.last_price}，被动腿last:{self.passive_tick.last_price}，\n\
-            主动腿bid1:{self.active_tick.bid_price_1}，被动腿ask1:{self.passive_tick.ask_price_1}；主动腿ask1：{self.active_tick.ask_price_1}，被动腿bid1：{self.passive_tick.bid_price_1}，\n\
-            开：价差{round(spread_bid_price, 4)}，价差比{round(spread_bid_rate, 5)}，最小空单应为{bid_holding}张，\n\
-            平：价差{round(spread_ask_price, 4)}，价差比{round(spread_ask_rate, 5)}，最大空单应为{ask_holding}张"
-        # self.write_log(msg)
+主动腿bid1:{self.active_tick.bid_price_1}，被动腿ask1:{self.passive_tick.ask_price_1}；主动腿ask1：{self.active_tick.ask_price_1}，被动腿bid1：{self.passive_tick.bid_price_1}，\n\
+开：价差{round(spread_bid_price, 4)}，价差比{round(spread_bid_rate, 5)}，最小空单应为{bid_holding}张，\n\
+平：价差{round(spread_ask_price, 4)}，价差比{round(spread_ask_rate, 5)}，最大空单应为{ask_holding}张"
+
         if bid_holding > abs(self.active_pos + self.hedge_num):
             volume = min(float(spread_bid_volume),
                          float(bid_holding - abs(self.active_pos + self.hedge_num)))
             self.write_log(msg)
             self.write_log(f"当前主动腿有空单{self.active_pos}张，对冲单{self.hedge_num}张，还应再开{volume}张空单")
-            # 主动腿开空
-            self.active_vt_orderid = self.short(
-                self.active_vt_symbol,
-                round(float(self.active_tick.bid_price_1) * (1 - self.slippage),
-                      len(str(self.tick_size).split('.')[-1])),
-                volume,
-                offset=Offset.OPEN
-            )
-            # 被动腿开多
-            self.passive_vt_orderid = self.buy(
-                self.passive_vt_symbol,
-                round(float(self.passive_tick.ask_price_1) * (1 + self.slippage),
-                      len(str(self.tick_size).split('.')[-1])),
-                volume
-            )
+            if self.active_vt_symbol.endswith('.OKEX'):
+                # 主动腿开空
+                self.active_vt_orderid = self.short(
+                    self.active_vt_symbol,
+                    float(self.active_tick.bid_price_1) * (1 - self.slippage),
+                    volume,
+                    offset=Offset.OPEN
+                )
+                # 被动腿开多
+                self.passive_vt_orderid = self.buy(
+                    self.passive_vt_symbol,
+                    float(self.passive_tick.ask_price_1) * (1 + self.slippage),
+                    volume
+                )
+            elif self.active_vt_symbol.endswith('.HUOBI'):
+                active_order = {
+                    'vt_symbol': self.active_vt_symbol,
+                    'direction': Direction.SHORT,
+                    'price': float(self.active_tick.bid_price_1),
+                    'volume': volume,
+                    'order_type': OrderType.OPTIMAL,
+                    'offset': Offset.OPEN
+                }
+                passive_order = {
+                    'vt_symbol': self.passive_vt_symbol,
+                    'direction': Direction.LONG,
+                    'price': float(self.active_tick.bid_price_1),
+                    'volume': volume,
+                    'order_type': OrderType.OPTIMAL,
+                    'offset': Offset.OPEN
+                }
+                [self.active_vt_orderid, self.passive_vt_orderid] = self.send_orders([active_order, passive_order])
 
         if ask_holding < abs(self.active_pos + self.hedge_num):
             volume = min(float(spread_ask_volume),
                          float(abs(self.active_pos + self.hedge_num)) - ask_holding)
             self.write_log(msg)
             self.write_log(f"当前主动腿有空单{self.active_pos}张，对冲单{self.hedge_num}张，还应再平{volume}张空单")
-            # 主动腿平空
-            self.active_vt_orderid = self.cover(
-                self.active_vt_symbol,
-                round(float(self.active_tick.ask_price_1) * (1 + self.slippage),
-                      len(str(self.tick_size).split('.')[-1])),
-                volume
-            )
-            # 被动腿平多
-            self.passive_vt_orderid = self.sell(
-                self.passive_vt_symbol,
-                round(float(self.passive_tick.bid_price_1) * (1 - self.slippage),
-                      len(str(self.tick_size).split('.')[-1])),
-                volume
-            )
+            if self.active_vt_symbol.endswith('.OKEX'):
+                # 主动腿平空
+                self.active_vt_orderid = self.cover(
+                    self.active_vt_symbol,
+                    float(self.active_tick.ask_price_1) * (1 + self.slippage),
+                    volume
+                )
+                # 被动腿平多
+                self.passive_vt_orderid = self.sell(
+                    self.passive_vt_symbol,
+                    float(self.passive_tick.bid_price_1) * (1 - self.slippage),
+                    volume
+                )
+            elif self.active_vt_symbol.endswith('.HUOBI'):
+                active_order = {
+                    'vt_symbol': self.active_vt_symbol,
+                    'direction': Direction.LONG,
+                    'price': float(self.active_tick.bid_price_1),
+                    'volume': volume,
+                    'order_type': OrderType.OPTIMAL,
+                    'offset': Offset.CLOSE
+                }
+                passive_order = {
+                    'vt_symbol': self.passive_vt_symbol,
+                    'direction': Direction.SHORT,
+                    'price': float(self.active_tick.bid_price_1),
+                    'volume': volume,
+                    'order_type': OrderType.OPTIMAL,
+                    'offset': Offset.CLOSE
+                }
+                [self.active_vt_orderid, self.passive_vt_orderid] = self.send_orders([active_order, passive_order])
 
         # Update GUI
-        # self.put_variables_event()
+        self.put_variables_event()
 
     def on_timer_(self):
         """"""
