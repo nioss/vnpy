@@ -100,6 +100,7 @@ class AlgoEngine(BaseEngine):
         self.event_engine.register(EVENT_TICK, self.process_tick_event)
         self.event_engine.register(EVENT_TIMER, self.process_timer_event)
         self.event_engine.register(EVENT_ORDER, self.process_order_event)
+        self.event_engine.register(EVENT_ORDER, self.email_alarm)
         self.event_engine.register(EVENT_TRADE, self.process_trade_event)
 
     def process_tick_event(self, event: Event):
@@ -334,3 +335,14 @@ class AlgoEngine(BaseEngine):
         }
 
         self.event_engine.put(event)
+
+    def email_alarm(self, event: Event):
+        try:
+            order = event.data
+            subject = 'VNPY 算法交易信息'
+            content = f"交易信息：\n时间：{order.time},\n交易所：{order.exchange.value},\n交易标的：{order.symbol},\n" \
+                f"下单类型：{order.type.value},\n下单方向：{order.direction.value},\n开平方向：{order.offset.value},\n" \
+                f"价格：{order.price},\n下单量：{order.volume},\n已成交：{order.traded}, \n状态：{order.status.value}"
+            self.main_engine.send_email(subject, content)
+        except Exception as e:
+            self.write_log(f'email_alarm error,error info:{e}')
