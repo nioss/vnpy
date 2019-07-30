@@ -141,70 +141,104 @@ class ArbitrageAlgo(AlgoTemplate):
             self.write_log("主动腿和被动腿数量不一致，执行对冲")
             self.hedge()
             return
-
-        # Calculate spread
-        spread_bid_price = float(self.active_tick.bid_price_1) - float(self.passive_tick.ask_price_1)
-        spread_ask_price = float(self.active_tick.ask_price_1) - float(self.passive_tick.bid_price_1)
-
-        spread_bid_volume = min(int(self.active_tick.bid_volume_1),
-                                int(self.passive_tick.ask_volume_1))
-        spread_ask_volume = min(int(self.active_tick.ask_volume_1),
-                                int(self.passive_tick.bid_volume_1))
-        self.last_price = float(self.active_tick.last_price)
-        spread_bid_rate = spread_bid_price / self.last_price
-        bid_holding = int((spread_bid_rate - self.level_pre) / self.level_gap) * self.level_num
-        spread_ask_rate = spread_ask_price / self.last_price
-        ask_holding = max(int((spread_ask_rate - self.level_pre) / self.level_gap + 1) * self.level_num, 0)
-
-        msg = f"价差盘口，时间：{tick.datetime}， 主动腿last:{self.last_price}，被动腿last:{self.passive_tick.last_price}，\n\
-主动腿bid1:{self.active_tick.bid_price_1}，被动腿ask1:{self.passive_tick.ask_price_1}；主动腿ask1：{self.active_tick.ask_price_1}，被动腿bid1：{self.passive_tick.bid_price_1}，\n\
-开：价差{round(spread_bid_price, 4)}，价差比{round(spread_bid_rate, 5)}，最小空单应为{bid_holding}张，\n\
-平：价差{round(spread_ask_price, 4)}，价差比{round(spread_ask_rate, 5)}，最大空单应为{ask_holding}张"
-
-        if bid_holding > abs(self.active_pos + self.hedge_num):
-            volume = min(float(spread_bid_volume),
-                         float(bid_holding - abs(self.active_pos + self.hedge_num)))
-            self.write_log(msg)
-            self.write_log(f"当前主动腿有空单{self.active_pos}张，对冲单{self.hedge_num}张，还应再开{volume}张空单")
-            if self.active_vt_symbol.endswith('.OKEX'):
-                # 主动腿开空
-                self.active_vt_orderid = self.short(
+        # return
+        # 升水价差
+        if float(self.active_tick.bid_price_1) > float(self.passive_tick.ask_price_1):
+            # 有贴水仓位先平仓
+            if self.passive_pos < 0:
+                volume = abs(self.passive_pos)
+                # 主动腿平多
+                self.active_vt_orderid = self.sell(
                     self.active_vt_symbol,
                     float(self.active_tick.bid_price_1) * (1 - self.slippage),
-                    volume,
-                    offset=Offset.OPEN
+                    volume
                 )
-                # 被动腿开多
-                self.passive_vt_orderid = self.buy(
+                # 被动腿平空
+                self.passive_vt_orderid = self.cover(
                     self.passive_vt_symbol,
                     float(self.passive_tick.ask_price_1) * (1 + self.slippage),
                     volume
                 )
-            elif self.active_vt_symbol.endswith('.HUOBI'):
-                active_order = {
-                    'vt_symbol': self.active_vt_symbol,
-                    'direction': Direction.SHORT,
-                    'price': float(self.active_tick.bid_price_1),
-                    'volume': volume,
-                    'order_type': OrderType.OPTIMAL,
-                    'offset': Offset.OPEN
-                }
-                passive_order = {
-                    'vt_symbol': self.passive_vt_symbol,
-                    'direction': Direction.LONG,
-                    'price': float(self.active_tick.bid_price_1),
-                    'volume': volume,
-                    'order_type': OrderType.OPTIMAL,
-                    'offset': Offset.OPEN
-                }
-                [self.active_vt_orderid, self.passive_vt_orderid] = self.send_orders([active_order, passive_order])
+            else:
+                spread_bid_price = float(self.active_tick.bid_price_1) - float(self.passive_tick.ask_price_1)
+                spread_ask_price = float(self.active_tick.ask_price_1) - float(self.passive_tick.bid_price_1)
 
-        if ask_holding < abs(self.active_pos + self.hedge_num):
-            volume = min(float(spread_ask_volume),
-                         float(abs(self.active_pos + self.hedge_num)) - ask_holding)
-            self.write_log(msg)
-            self.write_log(f"当前主动腿有空单{self.active_pos}张，对冲单{self.hedge_num}张，还应再平{volume}张空单")
-            if self.active_vt_symbol.endswith('.OKEX'):
+                spread_bid_volume = min(int(self.active_tick.bid_volume_1),
+                                        int(self.passive_tick.ask_volume_1))
+                spread_ask_volume = min(int(self.active_tick.ask_volume_1),
+                                        int(self.passive_tick.bid_volume_1))
+                self.last_price = float(self.active_tick.last_price)
+                spread_bid_rate = spread_bid_price / self.last_price
+                bid_holding = int((spread_bid_rate - self.level_pre) / self.level_gap) * self.level_num
+                spread_ask_rate = spread_ask_price / self.last_price
+                ask_holding = max(int((spread_ask_rate - self.level_pre) / self.level_gap + 1) * self.level_num, 0)
+
+                msg = f"升水价差盘口，时间：{tick.datetime}， 主动腿last:{self.last_price}，被动腿last:{self.passive_tick.last_price}，\n" \
+                    f"主动腿bid1:{self.active_tick.bid_price_1}，被动腿ask1:{self.passive_tick.ask_price_1}；主动腿ask1：{self.active_tick.ask_price_1}，被动腿bid1：{self.passive_tick.bid_price_1}，\n" \
+                    f"开：价差{round(spread_bid_price, 4)}，价差比{round(spread_bid_rate, 5)}，最小空单应为{bid_holding}张，\n" \
+                    f"平：价差{round(spread_ask_price, 4)}，价差比{round(spread_ask_rate, 5)}，最大空单应为{ask_holding}张"
+
+                if bid_holding > abs(self.active_pos + self.hedge_num):
+                    volume = min(float(spread_bid_volume),
+                                 float(bid_holding - abs(self.active_pos + self.hedge_num)))
+                    self.write_log(msg)
+                    self.write_log(f"当前主动腿有空单{self.active_pos}张，对冲单{self.hedge_num}张，还应再开{volume}张空单")
+                    if self.active_vt_symbol.endswith('.OKEX'):
+                        # 主动腿开空
+                        self.active_vt_orderid = self.short(
+                            self.active_vt_symbol,
+                            float(self.active_tick.bid_price_1) * (1 - self.slippage),
+                            volume,
+                            offset=Offset.OPEN
+                        )
+                        # 被动腿开多
+                        self.passive_vt_orderid = self.buy(
+                            self.passive_vt_symbol,
+                            float(self.passive_tick.ask_price_1) * (1 + self.slippage),
+                            volume
+                        )
+                    elif self.active_vt_symbol.endswith('.HUOBI'):
+                        active_order = {
+                            'vt_symbol': self.active_vt_symbol,
+                            'direction': Direction.SHORT,
+                            'price': float(self.active_tick.bid_price_1),
+                            'volume': volume,
+                            'order_type': OrderType.OPTIMAL,
+                            'offset': Offset.OPEN
+                        }
+                        passive_order = {
+                            'vt_symbol': self.passive_vt_symbol,
+                            'direction': Direction.LONG,
+                            'price': float(self.active_tick.bid_price_1),
+                            'volume': volume,
+                            'order_type': OrderType.OPTIMAL,
+                            'offset': Offset.OPEN
+                        }
+                        [self.active_vt_orderid, self.passive_vt_orderid] = self.send_orders([active_order, passive_order])
+
+                if ask_holding < abs(self.active_pos + self.hedge_num):
+                    volume = min(float(spread_ask_volume),
+                                 float(abs(self.active_pos + self.hedge_num)) - ask_holding)
+                    self.write_log(msg)
+                    self.write_log(f"当前主动腿有空单{self.active_pos}张，对冲单{self.hedge_num}张，还应再平{volume}张空单")
+                    if self.active_vt_symbol.endswith('.OKEX'):
+                        # 主动腿平空
+                        self.active_vt_orderid = self.cover(
+                            self.active_vt_symbol,
+                            float(self.active_tick.ask_price_1) * (1 + self.slippage),
+                            volume
+                        )
+                        # 被动腿平多
+                        self.passive_vt_orderid = self.sell(
+                            self.passive_vt_symbol,
+                            float(self.passive_tick.bid_price_1) * (1 - self.slippage),
+                            volume
+                        )
+        # 贴水行情
+        elif float(self.passive_tick.bid_price_1) > float(self.active_tick.ask_price_1):
+            # 有升水仓位先平仓
+            if self.passive_pos > 0:
+                volume = self.passive_pos
                 # 主动腿平空
                 self.active_vt_orderid = self.cover(
                     self.active_vt_symbol,
@@ -217,131 +251,94 @@ class ArbitrageAlgo(AlgoTemplate):
                     float(self.passive_tick.bid_price_1) * (1 - self.slippage),
                     volume
                 )
-            elif self.active_vt_symbol.endswith('.HUOBI'):
-                active_order = {
-                    'vt_symbol': self.active_vt_symbol,
-                    'direction': Direction.LONG,
-                    'price': float(self.active_tick.bid_price_1),
-                    'volume': volume,
-                    'order_type': OrderType.OPTIMAL,
-                    'offset': Offset.CLOSE
-                }
-                passive_order = {
-                    'vt_symbol': self.passive_vt_symbol,
-                    'direction': Direction.SHORT,
-                    'price': float(self.active_tick.bid_price_1),
-                    'volume': volume,
-                    'order_type': OrderType.OPTIMAL,
-                    'offset': Offset.CLOSE
-                }
-                [self.active_vt_orderid, self.passive_vt_orderid] = self.send_orders([active_order, passive_order])
+            else:
+                spread_bid_price = float(self.passive_tick.bid_price_1) - float(self.active_tick.ask_price_1)
+                spread_ask_price = float(self.passive_tick.ask_price_1) - float(self.active_tick.bid_price_1)
 
+                spread_bid_volume = min(int(self.passive_tick.bid_volume_1),
+                                        int(self.active_tick.ask_volume_1))
+                spread_ask_volume = min(int(self.passive_tick.ask_volume_1),
+                                        int(self.active_tick.bid_volume_1))
+                self.last_price = float(self.passive_tick.last_price)
+                spread_bid_rate = spread_bid_price / self.last_price
+                bid_holding = int((spread_bid_rate - self.level_pre) / self.level_gap) * self.level_num
+                spread_ask_rate = spread_ask_price / self.last_price
+                ask_holding = max(int((spread_ask_rate - self.level_pre) / self.level_gap + 1) * self.level_num, 0)
+                msg = f"贴水价差盘口，时间：{tick.datetime}， 主动腿last:{self.active_tick.last_price}，被动腿last:{self.passive_tick.last_price}，\n" \
+                    f"主动腿bid1:{self.active_tick.bid_price_1}，被动腿ask1:{self.passive_tick.ask_price_1}；主动腿ask1：{self.active_tick.ask_price_1}，被动腿bid1：{self.passive_tick.bid_price_1}，\n" \
+                    f"开：价差{round(spread_bid_price, 4)}，价差比{round(spread_bid_rate, 5)}，最小空单应为{bid_holding}张，\n" \
+                    f"平：价差{round(spread_ask_price, 4)}，价差比{round(spread_ask_rate, 5)}，最大空单应为{ask_holding}张"
+
+                if bid_holding > abs(self.passive_pos):
+                    volume = min(float(spread_bid_volume),
+                                 float(bid_holding - abs(self.passive_pos)))
+                    self.write_log(msg)
+                    self.write_log(f"当前主动腿有空单{self.active_pos}张，对冲单{self.hedge_num}张，还应再开{volume}张空单")
+
+                    # 被动腿开空
+                    self.passive_vt_orderid = self.short(
+                        self.passive_vt_symbol,
+                        float(self.passive_tick.bid_price_1) * (1 - self.slippage),
+                        volume,
+                        offset=Offset.OPEN
+                    )
+                    # 主动腿开多
+                    self.active_vt_orderid = self.buy(
+                        self.active_vt_symbol,
+                        float(self.active_tick.ask_price_1) * (1 + self.slippage),
+                        volume,
+                        offset=Offset.OPEN
+                    )
+                if ask_holding < abs(self.passive_pos):
+                    volume = min(float(spread_ask_volume),
+                                 float(abs(self.passive_pos)) - ask_holding)
+                    self.write_log(msg)
+                    self.write_log(f"当前主动腿有空单{self.active_pos}张，对冲单{self.hedge_num}张，还应再平{volume}张空单")
+
+                    # 被动腿平空
+                    self.passive_vt_orderid = self.cover(
+                        self.passive_vt_symbol,
+                        float(self.passive_tick.ask_price_1) * (1 + self.slippage),
+                        volume
+                    )
+                    # 主动腿平多
+                    self.active_vt_orderid = self.sell(
+                        self.active_vt_symbol,
+                        float(self.active_tick.bid_price_1) * (1 - self.slippage),
+                        volume
+                    )
         # Update GUI
         self.put_variables_event()
 
     def on_timer_(self):
         """"""
-        # Run algo by fixed interval
-        print('on_timer_')
-        self.timer_count += 1
-        if self.timer_count < self.interval:
-            self.put_variables_event()
-            return
-        self.timer_count = 0
-
-        # Cancel all active orders before moving on
-        if self.active_vt_orderid or self.passive_vt_orderid:
-            self.write_log("有未成交委托，等待成交")
-            # self.cancel_all()
-            return
-
-        # Make sure that active leg is fully hedged by passive leg
-        if (self.active_pos + self.passive_pos) != (0 - self.hedge_num):
-            self.write_log("主动腿和被动腿数量不一致，执行对冲")
-            self.hedge()
-            return
-
-        # Make sure that tick data of both leg are available
-        active_tick = self.get_tick(self.active_vt_symbol)
-        passive_tick = self.get_tick(self.passive_vt_symbol)
-        if not active_tick or not passive_tick:
-            self.write_log("获取某条套利腿的行情失败，无法交易")
-            return
-
-        # Calculate spread
-        spread_bid_price = float(active_tick.bid_price_1) - float(passive_tick.ask_price_1)
-        spread_ask_price = float(active_tick.ask_price_1) - float(passive_tick.bid_price_1)
-
-        spread_bid_volume = min(active_tick.bid_volume_1,
-                                passive_tick.ask_volume_1)
-        spread_ask_volume = min(active_tick.ask_volume_1,
-                                passive_tick.bid_volume_1)
-        self.last_price = float(active_tick.last_price)
-
-        spread_bid_rate = spread_bid_price / self.last_price  # 开仓价差比
-        bid_holding = int((spread_bid_rate - self.level_pre) / self.level_gap) * self.level_num
-        # self.write_log(f"做空价差比：{spread_bid_rate},主动腿最小应该持有空仓{bid_holding}张")
-        spread_ask_rate = spread_ask_price / self.last_price
-        ask_holding = max(int((spread_ask_rate - self.level_pre) / self.level_gap + 1) * self.level_num, 0)
-        # self.write_log(f"平空价差比：{spread_ask_rate},主动腿最大应该持有空仓{ask_holding}张")
-        msg = f"价差盘口，last:{self.last_price}，\n\
-            开：价差{round(spread_bid_price, 4)}，价差比{round(spread_bid_rate, 5)}，最小空单应为{bid_holding}张，\n\
-            平：价差{round(spread_ask_price, 4)}，价差比{round(spread_ask_rate, 5)}，最大空单应为{ask_holding}张"
-        # self.write_log(msg)
-        if bid_holding > abs(self.active_pos + self.hedge_num):
-            volume = min(float(spread_bid_volume),
-                         float(bid_holding - abs(self.active_pos + self.hedge_num)))
-            self.write_log(msg)
-            self.write_log(f"当前主动腿有空单{self.active_pos}张，对冲单{self.hedge_num}张，还应再开{volume}张空单")
-            # 主动腿开空
-            self.active_vt_orderid = self.short(
-                self.active_vt_symbol,
-                round(float(active_tick.bid_price_1) * (1 - self.slippage), len(str(self.tick_size).split('.')[-1])),
-                volume,
-                offset=Offset.OPEN
-            )
-            # 被动腿开多
-            self.passive_vt_orderid = self.buy(
-                self.passive_vt_symbol,
-                round(float(passive_tick.ask_price_1) * (1 + self.slippage), len(str(self.tick_size).split('.')[-1])),
-                volume
-            )
-
-        if ask_holding < abs(self.active_pos + self.hedge_num):
-            volume = min(float(spread_ask_volume),
-                         float(abs(self.active_pos + self.hedge_num)) - ask_holding)
-            self.write_log(msg)
-            self.write_log(f"当前主动腿有空单{self.active_pos}张，对冲单{self.hedge_num}张，还应再平{volume}张空单")
-            # 主动腿平空
-            self.active_vt_orderid = self.cover(
-                self.active_vt_symbol,
-                round(float(active_tick.ask_price_1) * (1 + self.slippage), len(str(self.tick_size).split('.')[-1])),
-                volume
-            )
-            # 被动腿平多
-            self.passive_vt_orderid = self.sell(
-                self.passive_vt_symbol,
-                round(float(passive_tick.bid_price_1) * (1 - self.slippage), len(str(self.tick_size).split('.')[-1])),
-                volume
-            )
-
-        # Update GUI
-        self.put_variables_event()
+        pass
 
     def hedge(self):
         """"""
-        tick = self.passive_tick
-        volume = -self.active_pos - self.passive_pos - self.hedge_num
-
+        # 对冲单从主动腿下
+        volume = self.active_pos + self.passive_pos + self.hedge_num
+        # 对冲单数量少了，主动腿开空
         if volume > 0:
-            self.passive_vt_orderid = self.buy(
-                self.passive_vt_symbol,
-                tick.ask_price_1,
-                volume
+            self.active_vt_orderid = self.short(
+                self.active_vt_symbol,
+                float(self.active_tick.bid_price_1) * (1 - self.slippage),
+                volume,
+                offset=Offset.OPEN
             )
+        # 对冲单数量多了
         elif volume < 0:
-            self.passive_vt_orderid = self.sell(
-                self.passive_vt_symbol,
-                tick.bid_price_1,
-                abs(volume)
-            )
+            if self.active_pos < volume:
+                # 主动腿平空
+                self.active_vt_orderid = self.cover(
+                    self.active_vt_symbol,
+                    float(self.active_tick.ask_price_1) * (1 + self.slippage),
+                    abs(volume)
+                )
+            elif self.passive_pos < volume:
+                # 被动腿平空
+                self.passive_vt_orderid = self.cover(
+                    self.passive_vt_symbol,
+                    float(self.passive_tick.ask_price_1) * (1 + self.slippage),
+                    abs(volume)
+                )
