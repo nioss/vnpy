@@ -346,3 +346,9 @@ class AlgoEngine(BaseEngine):
             self.main_engine.send_email(subject, content)
         except Exception as e:
             self.write_log(f'email_alarm error,error info:{e}')
+
+    def send_email(self, subject, content):
+        try:
+            self.main_engine.send_email(subject, content)
+        except Exception as e:
+            self.write_log(f'email_alarm error,error info:{e}')

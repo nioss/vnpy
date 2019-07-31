@@ -3,6 +3,7 @@ from vnpy.trader.engine import BaseEngine
 from vnpy.app.algo_trading import AlgoTemplate
 from vnpy.trader.event import EVENT_LOGIN
 from vnpy.trader.constant import (Direction, Offset, OrderType)
+from datetime import datetime
 
 
 class ArbitrageAlgo(AlgoTemplate):
@@ -126,7 +127,9 @@ class ArbitrageAlgo(AlgoTemplate):
         elif tick.vt_symbol == self.passive_vt_symbol:
             self.passive_tick = tick
         if self.active_tick is None or self.passive_tick is None or \
-                not self.active_tick.last_price or not self.passive_tick.last_price:
+                not self.active_tick.last_price or not self.passive_tick.last_price\
+                or not self.active_tick.bid_price_1 or not self.active_tick.ask_price_1\
+                or not self.passive_tick.ask_price_1 or not self.passive_tick.bid_price_1:
             self.write_log("获取某条套利腿的行情失败，无法交易")
             return
 
@@ -310,9 +313,26 @@ class ArbitrageAlgo(AlgoTemplate):
         # Update GUI
         self.put_variables_event()
 
-    def on_timer_(self):
+    def on_timer(self):
         """"""
-        pass
+        self.timer_count += 1
+        if self.timer_count < self.interval:
+            return
+        self.timer_count = 0
+
+        currency_time = datetime.now()
+        if currency_time>self.active_tick.datetime:
+            active_tick_time_delay = (currency_time - self.active_tick.datetime).seconds
+        else:
+            active_tick_time_delay = (self.active_tick.datetime - currency_time).seconds
+        if currency_time > self.passive_tick.datetime:
+            passive_tick_time_delay = (currency_time - self.passive_tick.datetime).seconds
+        else:
+            passive_tick_time_delay = (self.passive_tick.datetime - currency_time).seconds
+
+        if active_tick_time_delay > 10 or passive_tick_time_delay > 10:
+            self.send_email('tick数据行情异常断开',f'{self.active_vt_symbol}，{self.passive_vt_symbol} tick 数据异常')
+            self.interval = 60*30
 
     def hedge(self):
         """"""

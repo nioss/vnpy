@@ -253,3 +253,6 @@ class AlgoTemplate:
             variables[name] = getattr(self, name)
 
         self.algo_engine.put_variables_event(self, variables)
+
+    def send_email(self, subject, content):
+        self.algo_engine.send_email(subject, content)
