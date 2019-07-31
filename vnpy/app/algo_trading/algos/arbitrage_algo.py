@@ -331,6 +331,7 @@ class ArbitrageAlgo(AlgoTemplate):
             passive_tick_time_delay = (self.passive_tick.datetime - currency_time).seconds
 
         if active_tick_time_delay > 10 or passive_tick_time_delay > 10:
+            self.write_log('tick数据行情异常断开')
             self.send_email('tick数据行情异常断开',f'{self.active_vt_symbol}，{self.passive_vt_symbol} tick 数据异常')
             self.interval = 60*30
 
