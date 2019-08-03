@@ -23,7 +23,8 @@ class ArbitrageAlgo(AlgoTemplate):
         "level_gap": 0.002,
         "level_num": 10,
         "slippage": 0.01,
-        "interval": 0
+        "interval": 0,
+        "unit_num": 10
     }
 
     variables = [
@@ -52,6 +53,7 @@ class ArbitrageAlgo(AlgoTemplate):
         self.level_gap = setting["level_gap"]
         self.level_num = setting["level_num"]
         self.slippage = setting["slippage"]
+        self.unit_num = setting["unit_num"]
 
         # Variables
         self.active_vt_orderid = ""
@@ -183,7 +185,8 @@ class ArbitrageAlgo(AlgoTemplate):
 
                 if bid_holding > abs(self.active_pos + self.hedge_num):
                     volume = min(float(spread_bid_volume),
-                                 float(bid_holding - abs(self.active_pos + self.hedge_num)))
+                                 float(bid_holding - abs(self.active_pos + self.hedge_num)),
+                                 self.unit_num)
                     self.write_log(msg)
                     self.write_log(f"当前主动腿有空单{self.active_pos}张，对冲单{self.hedge_num}张，还应再开{volume}张空单")
                     if self.active_vt_symbol.endswith('.OKEX'):
@@ -221,7 +224,8 @@ class ArbitrageAlgo(AlgoTemplate):
 
                 if ask_holding < abs(self.active_pos + self.hedge_num):
                     volume = min(float(spread_ask_volume),
-                                 float(abs(self.active_pos + self.hedge_num)) - ask_holding)
+                                 float(abs(self.active_pos + self.hedge_num)) - ask_holding,
+                                 self.unit_num)
                     self.write_log(msg)
                     self.write_log(f"当前主动腿有空单{self.active_pos}张，对冲单{self.hedge_num}张，还应再平{volume}张空单")
                     if self.active_vt_symbol.endswith('.OKEX'):
@@ -274,7 +278,8 @@ class ArbitrageAlgo(AlgoTemplate):
 
                 if bid_holding > abs(self.passive_pos):
                     volume = min(float(spread_bid_volume),
-                                 float(bid_holding - abs(self.passive_pos)))
+                                 float(bid_holding - abs(self.passive_pos)),
+                                 self.unit_num)
                     self.write_log(msg)
                     self.write_log(f"当前主动腿有空单{self.active_pos}张，对冲单{self.hedge_num}张，还应再开{volume}张空单")
 
@@ -294,7 +299,8 @@ class ArbitrageAlgo(AlgoTemplate):
                     )
                 if ask_holding < abs(self.passive_pos):
                     volume = min(float(spread_ask_volume),
-                                 float(abs(self.passive_pos)) - ask_holding)
+                                 float(abs(self.passive_pos)) - ask_holding,
+                                 self.unit_num)
                     self.write_log(msg)
                     self.write_log(f"当前主动腿有空单{self.active_pos}张，对冲单{self.hedge_num}张，还应再平{volume}张空单")
 

@@ -28,5 +28,6 @@ NAME_DISPLAY_MAP = {
     "level_pre": "起始价差比",
     "level_gap": "每档价差比",
     "level_num": "每档开仓量",
-    "slippage": "滑点"
+    "slippage": "滑点",
+    "unit_num": "每次开仓量"
 }
